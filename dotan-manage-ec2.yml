@@ -1,0 +1,50 @@
+---
+- name: Manage Dotan's EC2 instances with Docker
+  hosts: managed_instances
+  become: yes
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+
+  tasks:
+    - name: Update hostname
+      ansible.builtin.hostname:
+        name: "{{ inventory_hostname }}"
+
+    - name: Install Docker
+      ansible.builtin.apt:
+        name: 
+          - docker.io
+          - docker-compose
+        state: present
+        update_cache: yes
+
+    - name: Ensure Docker service is started and enabled
+      ansible.builtin.service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Pull Docker image
+      community.docker.docker_image:
+        name: "{{ 'mysql' if 'mysql' in inventory_hostname else 'nginx' }}:{{ '5.7' if 'mysql' in inventory_hostname else '1.17' }}"
+        source: pull
+
+    - name: Run Docker container
+      community.docker.docker_container:
+        name: "{{ 'mysql' if 'mysql' in inventory_hostname else 'nginx' }}"
+        image: "{{ 'mysql' if 'mysql' in inventory_hostname else 'nginx' }}:{{ '5.7' if 'mysql' in inventory_hostname else '1.17' }}"
+        state: started
+        restart_policy: always
+        ports:
+          - "{{ '3306:3306' if 'mysql' in inventory_hostname else '80:80' }}"
+        env:
+          MYSQL_ROOT_PASSWORD: "{{ lookup('env','MYSQL_ROOT_PASSWORD') | default('changeMe123!', true) }}"
+      when: "'mysql' in inventory_hostname"
+
+    - name: Set up restart cron job
+      ansible.builtin.cron:
+        name: "Restart server"
+        weekday: "{{ 'sun' if 'mysql' in inventory_hostname else 'sat' }}"
+        hour: "{{ '6' if 'mysql' in inventory_hostname else '0' }}"
+        minute: "0"
+        job: "/sbin/shutdown -r now"

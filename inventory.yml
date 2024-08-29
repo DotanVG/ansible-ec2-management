@@ -1,0 +1,15 @@
+all:
+
+  children:
+
+    managed_instances:
+
+      hosts:
+
+        dotan-mysql-test-aws-01:
+
+          ansible_host: 18.209.238.143
+
+        dotan-nginx-test-aws-06:
+
+          ansible_host: 3.92.251.153
